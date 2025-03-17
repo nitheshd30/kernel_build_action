@@ -18,7 +18,7 @@ jobs:
           kernel-url: https://github.com/NothingOSS/android_kernel_msm-5.4_nothing_sm7325.git
           kernel-dir: msm-5.4
           kernel-branch: sm7325/v/mr
-          config: lahaina_GKI.config
+          config: vendor/lahaina_GKI.config
           arch: arm64
           aosp-gcc: true
           aosp-clang: true
