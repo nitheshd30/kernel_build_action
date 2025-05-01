@@ -16,15 +16,15 @@ jobs:
       uses: dabao1955/kernel_build_action@main
       with:
           kernel-url: https://github.com/NothingOSS/android_kernel_msm-5.4_nothing_sm7325.git
-          kernel-dir: msm-5.4
+          kernel-dir: sm7325
           kernel-branch: sm7325/v/mr
-          config: gki_defconfig
+          config: vendor/lahaina_GKI.config
           arch: arm64
           aosp-gcc: true
           aosp-clang: true
           ksu: true
           ksu-version: main
-          android-version: 12
-          aosp-clang-version: r383902
+          android-version: 15
+          aosp-clang-version: r522817
           disable-lto: true
           anykernel3: true
