@@ -1,0 +1,121 @@
+name: Build Kernel
+
+on:
+  workflow_dispatch:
+    inputs:
+      PROTON_RELEASE:
+        description: 'Release tag'
+        required: true
+        default: 'master'
+      KERNEL_TREE:
+        description: 'Kernel tree URL'
+        required: true
+        default: 'https://github.com/NothingOSS/android_kernel_msm-5.4_nothing_sm7325'
+      KERNEL_BRANCH:
+        description: 'Kernel tree Branch'
+        required: true
+        default: 'sm7325/v/mr'
+      KERNEL_DEFCONFIG:
+        description: 'Kernel defconfig'
+        required: true
+        default: 'vendor/lahaina_GKI.config'
+      KERNEL_IMAGE_NAME:
+        description: 'Kernel image name'
+        required: true
+        default: 'Image.gz'
+      LLVM_IAS:
+        description: 'Use Integrated Assembler?'
+        required: true
+        type: choice
+        default: 'LLVM_IAS=1'
+        options:
+        - LLVM_IAS=1
+        - LLVM_IAS=0
+      EXTRA_CMDS:
+        description: '(Optional) Extra command separated by a space to be passed directly to make (leave blank if not using).'
+        type: string
+        required: false
+
+jobs:
+  build:
+    name: Build Kernel by ${{ github.actor }}
+    runs-on: ubuntu-latest
+    if: github.event.repository.owner.id == github.event.sender.id
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Packages
+      run: |
+        sudo apt-get update
+        sudo apt-get install bison flex rsync bison device-tree-compiler bc cpio -y
+      
+    - name: Setup Proton
+      run: |
+        mkdir -p android && cd android
+        git config --global advice.detachedHead false
+        git clone --depth=1 https://github.com/kdrag0n/proton-clang -b ${{ inputs.PROTON_RELEASE }} ./toolchains/proton-clang
+
+    - name: Clone Kernel Tree
+      run: |
+        cd android
+        git clone --depth=1 ${{ inputs.KERNEL_TREE }} -b ${{ inputs.KERNEL_BRANCH }} ./kernel
+
+    - name: Set Properties
+      run: |
+        echo "BUILD_DATE=$(TZ=Asia/Manila date +%Y%m%d)" >> $GITHUB_ENV
+
+    - name: Build Kernel
+      run: |
+        cd android/kernel
+        export PATH="${GITHUB_WORKSPACE}/android/toolchains/proton-clang/bin:$PATH"
+        export ARCH=arm64
+        export CROSS_COMPILE=aarch64-linux-gnu-
+        export CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
+        if [ -z ${{ inputs.EXTRA_CMDS }} ]; then
+          make -j$(nproc --all) CC=clang O=out LD=ld.lld LLVM=1 ${{ inputs.LLVM_IAS }} ${{ inputs.KERNEL_DEFCONFIG }}
+          make -j$(nproc --all) CC=clang O=out LD=ld.lld LLVM=1 ${{ inputs.LLVM_IAS }} 
+        else
+          make -j$(nproc --all) CC=clang O=out LD=ld.lld LLVM=1 ${{ inputs.LLVM_IAS }} ${{ inputs.EXTRA_CMDS }} ${{ inputs.KERNEL_DEFCONFIG }}
+          make -j$(nproc --all) CC=clang O=out LD=ld.lld LLVM=1 ${{ inputs.LLVM_IAS }} ${{ inputs.EXTRA_CMDS }}
+        fi
+
+    - name: Check Kernel
+      run: |
+        cd android
+        if [ -f kernel/out/arch/arm64/boot/${{ inputs.KERNEL_IMAGE_NAME }} ]; then
+            echo "KERNEL_IS_OK=true" >> $GITHUB_ENV
+            echo "KERNEL_VERSION=$(cat kernel/out/include/config/kernel.release)" >> $GITHUB_ENV
+        else
+            echo "Kernel out directory is empty. Maybe(?) your name input did not exist at all. Try other kernel name."
+            exit 1
+        fi
+
+    - name: Compress Kernel
+      if: env.KERNEL_IS_OK == 'true'
+      run: |
+        cd android
+        git clone --depth=1 https://github.com/cd-Crypton/AnyKernel3.git -b FOR-ALL
+        cp -nf kernel/out/arch/arm64/boot/${{ inputs.KERNEL_IMAGE_NAME }} ${GITHUB_WORKSPACE}/android/AnyKernel3
+        cp -nf $(find kernel/out -name '*.ko') ${GITHUB_WORKSPACE}/android/AnyKernel3/modules/system/lib/modules/
+        ./toolchains/proton-clang/bin/llvm-strip --strip-debug ./AnyKernel3/modules/system/lib/modules/*.ko
+        cd AnyKernel3/
+        zip -r9 UPDATE-AnyKernel3-${{ env.BUILD_DATE }}-proton.zip * -x .git README.md *placeholder
+
+    - name: Upload to Release
+      if: env.KERNEL_IS_OK == 'true'
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          android/kernel/out/.config
+          android/kernel/out/arch/arm64/boot/${{ inputs.KERNEL_IMAGE_NAME }}
+          android/AnyKernel3/UPDATE-AnyKernel3-${{ env.BUILD_DATE }}-proton.zip
+        name: Proton Kernel Build | ${{ env.KERNEL_VERSION }} | ${{ env.BUILD_DATE }}
+        tag_name: ${{ github.run_id }}
+        body: |
+         ### Notes
+          * Kernel were built/compiled using [proton-clang](https://github.com/kdrag0n/proton-clang/tree/${{ inputs.PROTON_RELEASE }}).
+          * Test at your own risk.
+          * Use kernel flasher or any custom recoveries to flash the compressed kernel zip file.
