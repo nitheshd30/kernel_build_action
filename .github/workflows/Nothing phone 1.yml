@@ -1,4 +1,4 @@
-name: Nothing Phone (1) Kernel Build (Official Source)
+name: Nothing Phone (1) Kernel Build (Proton Clang)
 
 on:
   push:
@@ -8,13 +8,13 @@ on:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 120
 
     steps:
     # 1. Checkout this repository
     - uses: actions/checkout@v4
 
-    # 2. Clone NothingOS kernel (sm7325/v/mr branch)
+    # 2. Clone NothingOS kernel
     - name: Clone Kernel Source
       run: |
         git clone --depth=1 --branch=sm7325/v/mr \
@@ -27,12 +27,11 @@ jobs:
         sudo apt install -y git ccache bc libncurses5-dev \
         build-essential flex bison libelf-dev libssl-dev python3
 
-    # 4. Download Clang 18 (Android 15 optimized)
-    - name: Setup Toolchain
+    # 4. Download Proton Clang (Latest Stable)
+    - name: Setup Proton Clang
       run: |
         git clone --depth=1 \
-        https://gitlab.com/arter97/prebuilts_clang_kernel_linux-x86_clang-r498229b \
-        clang
+        https://github.com/kdrag0n/proton-clang.git clang
 
     # 5. Configure for GKI
     - name: Configure Kernel
@@ -41,7 +40,7 @@ jobs:
         make ARCH=arm64 O=out vendor/lahaina_GKI.config
         make ARCH=arm64 O=out olddefconfig
 
-    # 6. Build with full LLVM toolchain
+    # 6. Build with Proton Clang
     - name: Compile Kernel
       run: |
         cd kernel
@@ -50,7 +49,11 @@ jobs:
         LD=clang/bin/ld.lld \
         AR=clang/bin/llvm-ar \
         NM=clang/bin/llvm-nm \
-        CROSS_COMPILE=aarch64-linux-android- \
+        STRIP=clang/bin/llvm-strip \
+        OBJCOPY=clang/bin/llvm-objcopy \
+        OBJDUMP=clang/bin/llvm-objdump \
+        CROSS_COMPILE=aarch64-linux-gnu- \
+        CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
         LLVM=1 LLVM_IAS=1
 
     # 7. Package artifacts
@@ -63,5 +66,5 @@ jobs:
     # 8. Upload results
     - uses: actions/upload-artifact@v4
       with:
-        name: nothing-kernel-build
+        name: nothing-kernel-proton
         path: artifacts/*
