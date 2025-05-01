@@ -1,30 +1,30 @@
-# A simple action usage
-name: Build Kernel
-on:
-  workflow_dispatch:
+name: Nothing Phone (1) Kernel Build (Fixed Toolchain)
+
+on: [push, workflow_dispatch]
 
 jobs:
-  Build-Kernel:
-    strategy:
-      fail-fast: false
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
+  build:
+    runs-on: ubuntu-24.04
     steps:
+    - uses: actions/checkout@v4
+
+    - name: Clone Kernel
+      run: |
+        git clone --depth=1 -b sm7325/v/mr \
+        https://github.com/NothingOSS/android_kernel_msm-5.4_nothing_sm7325.git kernel
+
+    - name: Install AOSP Clang 15
+      run: |
+        git clone --depth=1 \
+        https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 \
+        -b android-15.0.0_r1 clang
+
     - name: Build Kernel
-      uses: dabao1955/kernel_build_action@main
-      with:
-          kernel-url: https://github.com/NothingOSS/android_kernel_msm-5.4_nothing_sm7325.git
-          kernel-dir: sm7325
-          kernel-branch: sm7325/v/mr
-          config: vendor/lahaina_QGKI.config
-          arch: arm64
-          aosp-gcc: true
-          aosp-clang: true
-          ksu: true
-          ksu-version: main
-          android-version: 12
-          aosp-clang-version: r416183b1
-          disable-lto: true
-          anykernel3: true
+      run: |
+        cd kernel
+        make ARCH=arm64 O=out vendor/lahaina_GKI_defconfig
+        make ARCH=arm64 O=out olddefconfig
+        make ARCH=arm64 O=out -j$(nproc) \
+        CC=clang/bin/clang \
+        LD=clang/bin/ld.lld \
+        LLVM=1 LLVM_IAS=1
