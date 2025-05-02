@@ -99,10 +99,12 @@ jobs:
         # Verify the build
         if [ -f "out/arch/arm64/boot/Image.gz-dtb" ]; then
           echo "Kernel built successfully!"
-          # Package the artifacts
-          mkdir -p $GITHUB_WORKSPACE/artifacts
-          cp out/arch/arm64/boot/Image.gz-dtb $GITHUB_WORKSPACE/artifacts/
-          cd $GITHUB_WORKSPACE/artifacts
+          # Create artifacts directory
+          mkdir -p ../artifacts
+          # Copy the built image
+          cp out/arch/arm64/boot/Image.gz-dtb ../artifacts/
+          # Create zip archive
+          cd ../artifacts
           zip -r9 kernel-$(date +%Y%m%d-%H%M).zip *
         else
           echo "Kernel build failed!"
@@ -113,4 +115,5 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: kernel-build
-        path: ./artifacts/*.zip
+        path: artifacts/*.zip
+        if-no-files-found: error
