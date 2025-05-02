@@ -37,7 +37,7 @@ jobs:
     - name: Configure Kernel
       run: |
         cd kernel
-        make ARCH=arm64 O=out vendor/lahaina_GKI.config
+        make ARCH=arm64 O=out gki_defconfig
         make ARCH=arm64 O=out olddefconfig
 
     # 6. Build with Proton Clang
