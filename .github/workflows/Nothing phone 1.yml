@@ -27,32 +27,44 @@ jobs:
         sudo apt install -y git ccache bc libncurses5-dev \
         build-essential flex bison libelf-dev libssl-dev python3
 
-    # 4. Download correct Clang (Android 13 compatible)
     - name: Setup Toolchain
-      run: |
-        git clone --depth=1 \
-        https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b \
-        clang
+  run: |
+    git clone --depth=1 \
+    https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b \
+    clang
 
-    # 5. Configure kernel with lahaina-qgki_defconfig
-    - name: Configure Kernel
+- name: Verify Toolchain
+  run: |
+    echo "Toolchain contents:"
+    ls clang/bin/
+    echo "LLVM version:"
+    clang/bin/clang --version
+
+  
+   - name: Configure Kernel
       run: |
         cd kernel
         make ARCH=arm64 O=out vendor/lahaina-qgki_defconfig
         make ARCH=arm64 O=out olddefconfig
 
     # 6. Build with explicit paths
-    - name: Compile Kernel
-      run: |
-        cd kernel
-        make ARCH=arm64 O=out -j$(nproc) \
-        CC=$(pwd)/../clang/bin/clang \
-        LD=$(pwd)/../clang/bin/ld.lld \
-        AR=$(pwd)/../clang/bin/llvm-ar \
-        CROSS_COMPILE=aarch64-linux-android- \
-        LLVM=1 LLVM_IAS=1
+    - name: Build Kernel
+  run: |
+    cd kernel
+    export CLANG_PATH=$(pwd)/../clang/bin
+    make ARCH=arm64 O=out -j$(nproc) \
+    CC=${CLANG_PATH}/clang \
+    LD=${CLANG_PATH}/ld.lld \
+    AR=${CLANG_PATH}/llvm-ar \
+    NM=${CLANG_PATH}/llvm-nm \
+    STRIP=${CLANG_PATH}/llvm-strip \
+    OBJCOPY=${CLANG_PATH}/llvm-objcopy \
+    OBJDUMP=${CLANG_PATH}/llvm-objdump \
+    READELF=${CLANG_PATH}/llvm-readelf \
+    CROSS_COMPILE=aarch64-linux-android- \
+    LLVM=1 LLVM_IAS=1
 
-    # 7. Package artifacts
+  
     - name: Prepare Output
       run: |
         mkdir -p artifacts
