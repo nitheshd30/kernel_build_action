@@ -45,7 +45,7 @@ jobs:
       run: |
         cd kernel
         make ARCH=arm64 O=out -j$(nproc) \
-        CC=clang/bin/clang \
+        CC=clang/bin \
         LD=clang/bin/ld.lld \
         AR=clang/bin/llvm-ar \
         NM=clang/bin/llvm-nm \
