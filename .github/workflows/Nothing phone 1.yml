@@ -1,4 +1,4 @@
-name: Nothing Phone (1) Kernel Build (LineageOS)
+name: Nothing Phone (1) Kernel Builder
 
 on:
   push:
@@ -11,68 +11,56 @@ jobs:
     timeout-minutes: 120
 
     steps:
-    # 1. Checkout this repository
     - uses: actions/checkout@v4
 
-    # 2. Clone LineageOS kernel (Android 13 base)
     - name: Clone Kernel Source
       run: |
         git clone --depth=1 --branch=lineage-22.2 \
         https://github.com/LineageOS/android_kernel_nothing_sm7325.git kernel
 
-    # 3. Install dependencies
-    - name: Install Build Tools
+    - name: Install Dependencies
       run: |
         sudo apt update -y
         sudo apt install -y git ccache bc libncurses5-dev \
         build-essential flex bison libelf-dev libssl-dev python3
 
     - name: Setup Toolchain
-  run: |
-    git clone --depth=1 \
-    https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b \
-    clang
+      run: |
+        git clone --depth=1 \
+        https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b \
+        clang
+        echo "CLANG_VERSION=$(clang/bin/clang --version | head -n1)" >> $GITHUB_ENV
 
-- name: Verify Toolchain
-  run: |
-    echo "Toolchain contents:"
-    ls clang/bin/
-    echo "LLVM version:"
-    clang/bin/clang --version
-
-  
-   - name: Configure Kernel
+    - name: Configure Kernel
       run: |
         cd kernel
-        make ARCH=arm64 O=out vendor/lahaina-qgki_defconfig
+        make ARCH=arm64 O=out lahaina-qgki_defconfig
         make ARCH=arm64 O=out olddefconfig
 
-    # 6. Build with explicit paths
-    - name: Build Kernel
-  run: |
-    cd kernel
-    export CLANG_PATH=$(pwd)/../clang/bin
-    make ARCH=arm64 O=out -j$(nproc) \
-    CC=${CLANG_PATH}/clang \
-    LD=${CLANG_PATH}/ld.lld \
-    AR=${CLANG_PATH}/llvm-ar \
-    NM=${CLANG_PATH}/llvm-nm \
-    STRIP=${CLANG_PATH}/llvm-strip \
-    OBJCOPY=${CLANG_PATH}/llvm-objcopy \
-    OBJDUMP=${CLANG_PATH}/llvm-objdump \
-    READELF=${CLANG_PATH}/llvm-readelf \
-    CROSS_COMPILE=aarch64-linux-android- \
-    LLVM=1 LLVM_IAS=1
+    - name: Build Kernel (Full LLVM)
+      run: |
+        cd kernel
+        export CLANG_PATH="$(pwd)/../clang/bin"
+        make ARCH=arm64 O=out -j$(nproc) \
+        CC="${CLANG_PATH}/clang" \
+        LD="${CLANG_PATH}/ld.lld" \
+        AR="${CLANG_PATH}/llvm-ar" \
+        NM="${CLANG_PATH}/llvm-nm" \
+        STRIP="${CLANG_PATH}/llvm-strip" \
+        OBJCOPY="${CLANG_PATH}/llvm-objcopy" \
+        OBJDUMP="${CLANG_PATH}/llvm-objdump" \
+        READELF="${CLANG_PATH}/llvm-readelf" \
+        CROSS_COMPILE="aarch64-linux-android-" \
+        LLVM=1 LLVM_IAS=1
 
-  
-    - name: Prepare Output
+    - name: Package Artifacts
       run: |
         mkdir -p artifacts
         cp kernel/out/arch/arm64/boot/Image.gz-dtb artifacts/
         [ -f kernel/out/vendor_boot.img ] && cp kernel/out/vendor_boot.img artifacts/
+        echo "KERNEL_VERSION=$(strings kernel/out/vmlinux | grep 'Linux version' | cut -d' ' -f3)" >> $GITHUB_ENV
 
-    # 8. Upload results
     - uses: actions/upload-artifact@v4
       with:
-        name: nothing-kernel-lineage
+        name: nothing-kernel-${{ env.KERNEL_VERSION }}
         path: artifacts/*
