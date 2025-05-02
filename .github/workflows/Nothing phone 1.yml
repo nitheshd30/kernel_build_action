@@ -1,70 +1,61 @@
-name: Nothing Phone (1) Kernel Build (Proton Clang)
+name: Kernel Build - Nothing Phone 1
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    runs-on: ubuntu-latest
 
     steps:
-    # 1. Checkout this repository
-    - uses: actions/checkout@v4
-
-    # 2. Clone NothingOS kernel
     - name: Clone Kernel Source
       run: |
-        git clone --depth=1 --branch=sm7325/v/mr \
-        https://github.com/NothingOSS/android_kernel_msm-5.4_nothing_sm7325.git kernel
+        git clone --depth=1 https://github.com/NothingOSS/android_kernel_msm-5.4_nothing_sm7325 -b sm7325/v/mr kernel
 
-    # 3. Install dependencies
-    - name: Install Build Tools
+    - name: Set up Environment
       run: |
-        sudo apt update -y
-        sudo apt install -y git ccache bc libncurses5-dev \
-        build-essential flex bison libelf-dev libssl-dev python3
+        sudo apt-get update
+        sudo apt-get install -y git wget curl build-essential bc bison flex libssl-dev libncurses-dev
 
-    # 4. Download Proton Clang (Latest Stable)
-    - name: Setup Proton Clang
+    - name: Clone Toolchain
       run: |
-        git clone --depth=1 \
-        https://github.com/kdrag0n/proton-clang.git clang
+        git clone --depth=1 https://github.com/kdrag0n/proton-clang.git clang
 
-    # 5. Configure for GKI
-    - name: Configure Kernel
+    - name: Clone AnyKernel3
+      run: |
+        git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git AnyKernel3
+
+    - name: Build Kernel
       run: |
         cd kernel
-        make ARCH=arm64 O=out gki_defconfig
-        make ARCH=arm64 O=out olddefconfig
+        export ARCH=arm64
+        export SUBARCH=arm64
+        export CLANG_PATH=$(pwd)/../clang
+        export PATH=$CLANG_PATH/bin:$PATH
 
-    # 6. Build with Proton Clang
-    - name: Compile Kernel
+        make O=out ARCH=arm64 vendor/lahaina_GKI.config
+        make -j$(nproc) O=out \
+            ARCH=arm64 \
+            CC=clang \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
+
+    - name: Prepare Flashable Zip
       run: |
-        cd kernel
-        make ARCH=arm64 O=out -j$(nproc) \
-        CC=clang \
-        LD=clang/bin/ld.lld \
-        AR=clang/bin/llvm-ar \
-        NM=clang/bin/llvm-nm \
-        STRIP=clang/bin/llvm-strip \
-        OBJCOPY=clang/bin/llvm-objcopy \
-        OBJDUMP=clang/bin/llvm-objdump \
-        CROSS_COMPILE=aarch64-linux-gnu- \
-        CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-        LLVM=1 LLVM_IAS=1
+        cp kernel/out/arch/arm64/boot/Image AnyKernel3/
+        cd AnyKernel3
+        zip -r9 ../NothingPhone1-Kernel.zip * -x .git README.md
 
-    # 7. Package artifacts
-    - name: Prepare Output
-      run: |
-        mkdir -p artifacts
-        cp kernel/out/arch/arm64/boot/{Image.gz,Image.gz-dtb} artifacts/
-        [ -f kernel/out/vendor_boot.img ] && cp kernel/out/vendor_boot.img artifacts/
-
-    # 8. Upload results
-    - uses: actions/upload-artifact@v4
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
       with:
-        name: nothing-kernel-proton
-        path: artifacts/*
+        tag_name: "auto-release-${{ github.run_number }}"
+        name: "Nothing Phone 1 Kernel - Build ${{ github.run_number }}"
+        body: |
+          Automatic kernel build for Nothing Phone 1.
+          - Config: vendor/lahaina_GKI.config
+          - Build number: ${{ github.run_number }}
+          - Triggered by: ${{ github.actor }}
+        files: NothingPhone1-Kernel.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
