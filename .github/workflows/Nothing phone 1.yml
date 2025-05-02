@@ -34,7 +34,7 @@ jobs:
     - name: Configure Kernel
       run: |
         cd kernel
-        make ARCH=arm64 O=out vendor/lahaina_QGKI.config
+        make ARCH=arm64 O=out vendor/lahaina-qgki_defconfig vendor/debugfs.config
 
     - name: Build Kernel (Full LLVM)
       run: |
