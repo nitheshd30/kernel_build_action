@@ -22,7 +22,7 @@ jobs:
     - name: Build Kernel
       run: |
         cd kernel
-        make ARCH=arm64 O=out vendor/lahaina_GKI_defconfig
+        make ARCH=arm64 O=out gki_defconfig
         make ARCH=arm64 O=out olddefconfig
         make ARCH=arm64 O=out -j$(nproc) \
         CC=clang/bin/clang \
