@@ -27,7 +27,7 @@ jobs:
     - name: Setup Toolchain
       run: |
         git clone --depth=1 \
-        https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b \
+        https://github.com/kdrag0n/proton-clang \
         clang
         echo "CLANG_VERSION=$(clang/bin/clang --version | head -n1)" >> $GITHUB_ENV
 
