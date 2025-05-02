@@ -10,15 +10,15 @@ on:
       KERNEL_TREE:
         description: 'Kernel tree URL'
         required: true
-        default: 'https://github.com/NothingOSS/android_kernel_msm-5.4_nothing_sm7325'
+        default: 'https://github.com/LineageOS/android_kernel_nothing_sm7325'
       KERNEL_BRANCH:
         description: 'Kernel tree Branch'
         required: true
-        default: 'sm7325/v/mr'
+        default: 'lineage-22.2'
       KERNEL_DEFCONFIG:
         description: 'Kernel defconfig'
         required: true
-        default: 'vendor/lahaina_GKI.config'
+        default: 'vendor/lahaina-qgki_defconfig'
       KERNEL_IMAGE_NAME:
         description: 'Kernel image name'
         required: true
